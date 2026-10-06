@@ -51,6 +51,8 @@ That will open a SQL editor bind of database, it provider:
 
 ![run](https://doc.database-client.com/images/run.jpg)
 
+By default the result of a query run from an editor opens in a tab beside it. To show results in the bottom panel instead (one view, reused by every query), set `"database-client.results.location": "panel"`. Use the toolbar's full view button to open the current result in an editor tab.
+
 The database can be searched by clicking the search button to the right of "Tables".
 
 ![1708594027208](image/README/1708594027208.png)

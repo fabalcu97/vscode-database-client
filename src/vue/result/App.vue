@@ -51,6 +51,7 @@ export default {
   data() {
     return {
       showFullBtn: false,
+      inPanel: false,
       remainHeight: 0,
       connection: {},
       result: {
@@ -98,10 +99,14 @@ export default {
   },
   mounted() {
     this.remainHeight = window.innerHeight - 90;
-    this.showFullBtn = window.outerWidth / window.innerWidth >= 2;
+    const updateFullBtn = () => {
+      // the bottom panel is wide, so the width heuristic does not apply, always allow opening in an editor.
+      this.showFullBtn = this.inPanel || window.outerWidth / window.innerWidth >= 2;
+    };
+    updateFullBtn();
     window.addEventListener("resize", () => {
       this.remainHeight = window.innerHeight - 90;
-      this.showFullBtn = window.outerWidth / window.innerWidth >= 2;
+      updateFullBtn();
     });
     const handlerData = (data, sameTable) => {
       this.result = data;
@@ -162,6 +167,10 @@ export default {
       if (!data) return;
       const response = data.content;
       console.log(data);
+      if (response && response.inPanel != null) {
+        this.inPanel = response.inPanel;
+        updateFullBtn();
+      }
       this.result.transId=response.transId;
       this.table.loading = false;
       switch (data.type) {

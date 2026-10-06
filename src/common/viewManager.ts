@@ -23,9 +23,17 @@ export class ViewOption {
     public eventHandler?: (handler: Hanlder) => void;
 }
 
-export class Hanlder {
+/**
+ * Anything hosting a webview: an editor WebviewPanel or a panel WebviewView.
+ */
+export interface WebviewHost {
+    webview: vscode.Webview;
+    title?: string;
+}
 
-    constructor(public panel: WebviewPanel, private eventEmitter: EventEmitter) { }
+export class Hanlder<T extends WebviewHost = WebviewPanel> {
+
+    constructor(public panel: T, private eventEmitter: EventEmitter) { }
 
     on(event: string, callback: (content: any) => void): this {
         this.eventEmitter.on(event, callback)
@@ -137,6 +145,19 @@ export class ViewManager {
 
         });
 
+    }
+
+    public static get webviewRoot(): string {
+        return this.webviewPath;
+    }
+
+    /**
+     * Read `out/webview/<viewPath>.html` and rewrite its css/js links for the given webview.
+     */
+    public static renderHtml(viewPath: string, webview: vscode.Webview): Promise<string> {
+        const targetPath = `${this.webviewPath}/${viewPath}.html`;
+        return fs.promises.readFile(targetPath, 'utf8')
+            .then(data => this.buildPath(data, webview, path.resolve(targetPath, "..")));
     }
 
     private static buildPath(data: string, webview: vscode.Webview, contextPath: string): string {

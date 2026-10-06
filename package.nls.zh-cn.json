@@ -63,5 +63,8 @@
 	"command.redis.key.detail": "查看键详情",
 	"config.title":"_数据库配置",
 	"config.preferConnectionName":"使用连接名称作为连接的显示名",
-	"config.defaultSelectLimit":"默认的分页大小."
+	"config.defaultSelectLimit":"默认的分页大小.",
+	"config.results.location":"在编辑器中执行查询时, 查询结果的显示位置.",
+	"config.results.location.editor":"在 SQL 编辑器旁的编辑器标签页中显示结果.",
+	"config.results.location.panel":"在底部面板中显示结果, 每次查询复用同一个视图."
 }
