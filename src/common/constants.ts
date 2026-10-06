@@ -30,6 +30,7 @@ export enum ConfigKey {
     DEFAULT_LIMIT = "defaultSelectLimit",
     PREFER_CONNECTION_NAME = "preferConnectionName",
     DISABLE_SQL_CODELEN = "disableSqlCodeLen",
+    RESULT_LOCATION = "results.location",
 }
 
 export enum CodeCommand {

@@ -32,7 +32,8 @@
 		"onCommand:mysql.connection.add",
 		"onCommand:mysql.refresh",
 		"onView:github.cweijan.mysql",
-		"onView:github.cweijan.nosql"
+		"onView:github.cweijan.nosql",
+		"onView:github.cweijan.result"
 	],
 	"main": "./out/extension",
 	"contributes": {
@@ -91,6 +92,13 @@
 					"title": "NoSQL",
 					"icon": "resources/image/other-container.png"
 				}
+			],
+			"panel": [
+				{
+					"id": "github-cweijan-result",
+					"title": "Database Result",
+					"icon": "resources/icon/database-container.svg"
+				}
 			]
 		},
 		"views": {
@@ -104,6 +112,13 @@
 				{
 					"id": "github.cweijan.nosql",
 					"name": "NoSQL"
+				}
+			],
+			"github-cweijan-result": [
+				{
+					"type": "webview",
+					"id": "github.cweijan.result",
+					"name": "Query Result"
 				}
 			]
 		},
@@ -964,7 +979,20 @@
 					"default": 100,
 					"description": "%config.defaultSelectLimit%"
 				},
-				"database-client.highlightSQLBlock": {
+				"database-client.results.location": {
+						"type": "string",
+						"enum": [
+							"editor",
+							"panel"
+						],
+						"enumDescriptions": [
+							"%config.results.location.editor%",
+							"%config.results.location.panel%"
+						],
+						"default": "editor",
+						"description": "%config.results.location%"
+					},
+					"database-client.highlightSQLBlock": {
 					"type": "boolean",
 					"default": false,
 					"description": "Highlight SQL Code block."

@@ -3,11 +3,12 @@ import { Util } from "@/common/util";
 import { EsRequest } from "@/model/es/esRequest";
 import { ServiceManager } from "@/service/serviceManager";
 import { basename, extname } from "path";
-import { env, Uri, ViewColumn, window } from "vscode";
+import { env, Uri, ViewColumn, WebviewPanel, window } from "vscode";
 import { Trans } from "@/common/trans";
 import { ConfigKey, DatabaseType, MessageType } from "../../common/constants";
 import { Global } from "../../common/global";
-import { ViewManager } from "../../common/viewManager";
+import { Hanlder, ViewManager, WebviewHost } from "../../common/viewManager";
+import { ResultViewProvider } from "./resultViewProvider";
 import { Node } from "../../model/interface/node";
 import { ColumnNode } from "../../model/other/columnNode";
 import { ExportService } from "../export/exportService";
@@ -28,80 +29,106 @@ export class QueryPage {
 
     public static async send(queryParam: QueryParam<any>) {
 
-        const dbOption: Node = queryParam.connection;
         await QueryPage.adaptData(queryParam);
         const type = this.keepSingle(queryParam);
 
-        ViewManager.createWebviewPanel({
+        if (this.isActiveSql(queryParam.queryOption) && Global.getConfig<string>(ConfigKey.RESULT_LOCATION) == "panel") {
+            ResultViewProvider.show(handler => this.handleEvent(handler, queryParam, true));
+            return;
+        }
+
+        this.showInEditor(queryParam, type, this.isActiveSql(queryParam.queryOption));
+    }
+
+    private static showInEditor(queryParam: QueryParam<any>, type: any, splitView: boolean, inPanel = false) {
+        return ViewManager.createWebviewPanel({
             singlePage: true,
-            splitView: this.isActiveSql(queryParam.queryOption),
+            splitView,
             path: 'result', title: 'Query', type,
             iconPath: Global.getExtPath("resources", "icon", "query.svg"),
-            eventHandler: async (handler) => {
-                handler.on("init", () => {
-                    if (queryParam.res?.table) {
-                        handler.panel.title = queryParam.res.table;
-                    }
-                    queryParam.res.transId = Trans.transId;
-                    queryParam.res.viewId = queryParam.queryOption?.viewId;
-                    handler.emit(queryParam.type, { ...queryParam.res, dbType: dbOption.dbType })
-                }).on('execute', (params) => {
-                    QueryUnit.runQuery(params.sql, dbOption, queryParam.queryOption);
-                }).on('next', async (params) => {
-                    const executeTime = new Date().getTime();
-                    const sql = ServiceManager.getPageService(dbOption.dbType).build(params.sql, params.pageNum, params.pageSize)
-                    dbOption.execute(sql).then((rows) => {
-                        const costTime = new Date().getTime() - executeTime;
-                        handler.emit(MessageType.NEXT_PAGE, { sql, data: rows ,costTime})
-                    })
-                }).on("full", () => {
-                    handler.panel.reveal(ViewColumn.One)
-                }).on('esFilter', (query) => {
-                    const esQuery = EsRequest.build(queryParam.res.sql, obj => {
-                        obj.query = query;
-                    })
-                    QueryUnit.runQuery(esQuery, dbOption, queryParam.queryOption);
-                }).on('esSort', (sort) => {
-                    const esQuery = EsRequest.build(queryParam.res.sql, obj => {
-                        obj.sort = sort;
-                    })
-                    QueryUnit.runQuery(esQuery, dbOption, queryParam.queryOption);
-                }).on('copy', value => {
-                    Util.copyToBoard(value)
-                }).on('count', async (params) => {
-                    if (dbOption.dbType == DatabaseType.MONGO_DB) {
-                        const sql = params.sql.replace(/(.+?find\(.+?\)).+/i, '$1').replace("find", "count");
-                        dbOption.execute(sql).then((count) => {
-                            handler.emit('COUNT', { data: count })
-                        })
-                    } else {
-                        dbOption.execute(params.sql.replace(/\bSELECT\b.+?\bFROM\b/i, 'select count(*) count from')).then((rows) => {
-                            handler.emit('COUNT', { data: rows[0].count })
-                        })
-                    }
-                }).on('export', (params) => {
-                    this.exportService.export({ ...params.option, request: queryParam.res.request, dbOption }).then(() => {
-                        handler.emit('EXPORT_DONE')
-                    })
-                }).on('changePageSize', (pageSize) => {
-                    Global.updateConfig(ConfigKey.DEFAULT_LIMIT, pageSize)
-                }).on('openGithub', () => {
-                    env.openExternal(Uri.parse('https://github.com/cweijan/vscode-database-client'));
-                }).on('openCoffee', () => {
-                    env.openExternal(Uri.parse('https://www.buymeacoffee.com/cweijan'));
-                }).on('dataModify', () => {
-                    if (handler.panel.title.indexOf("*") == -1) handler.panel.title = `${handler.panel.title}*`
-                }).on("saveModify", (sql) => {
-                    dbOption.execute(sql).then(() => {
-                        handler.emit('updateSuccess')
-                        handler.panel.title = handler.panel.title.replace("*", "")
-                    }).catch(err => {
-                        handler.emit("updateFail", err)
-                    })
+            eventHandler: (handler) => this.handleEvent(handler, queryParam, inPanel),
+        });
+    }
+
+    /**
+     * Open the result currently shown in the panel as its own editor tab.
+     */
+    private static popOut(queryParam: QueryParam<any>) {
+        const popOutParam: QueryParam<any> = {
+            ...queryParam,
+            queryOption: { ...queryParam.queryOption, split: false, viewId: new Date().getTime() },
+        };
+        this.showInEditor(popOutParam, popOutParam.queryOption.viewId, false);
+    }
+
+    private static handleEvent(handler: Hanlder<WebviewHost>, queryParam: QueryParam<any>, inPanel: boolean) {
+        const dbOption: Node = queryParam.connection;
+        handler.on("init", () => {
+            if (queryParam.res?.table) {
+                handler.panel.title = queryParam.res.table;
+            }
+            queryParam.res.transId = Trans.transId;
+            queryParam.res.viewId = queryParam.queryOption?.viewId;
+            handler.emit(queryParam.type, { ...queryParam.res, dbType: dbOption.dbType, inPanel })
+        }).on('execute', (params) => {
+            QueryUnit.runQuery(params.sql, dbOption, queryParam.queryOption);
+        }).on('next', async (params) => {
+            const executeTime = new Date().getTime();
+            const sql = ServiceManager.getPageService(dbOption.dbType).build(params.sql, params.pageNum, params.pageSize)
+            dbOption.execute(sql).then((rows) => {
+                const costTime = new Date().getTime() - executeTime;
+                handler.emit(MessageType.NEXT_PAGE, { sql, data: rows ,costTime})
+            })
+        }).on("full", () => {
+            if (inPanel) {
+                this.popOut(queryParam)
+            } else {
+                (handler.panel as WebviewPanel).reveal(ViewColumn.One)
+            }
+        }).on('esFilter', (query) => {
+            const esQuery = EsRequest.build(queryParam.res.sql, obj => {
+                obj.query = query;
+            })
+            QueryUnit.runQuery(esQuery, dbOption, queryParam.queryOption);
+        }).on('esSort', (sort) => {
+            const esQuery = EsRequest.build(queryParam.res.sql, obj => {
+                obj.sort = sort;
+            })
+            QueryUnit.runQuery(esQuery, dbOption, queryParam.queryOption);
+        }).on('copy', value => {
+            Util.copyToBoard(value)
+        }).on('count', async (params) => {
+            if (dbOption.dbType == DatabaseType.MONGO_DB) {
+                const sql = params.sql.replace(/(.+?find\(.+?\)).+/i, '$1').replace("find", "count");
+                dbOption.execute(sql).then((count) => {
+                    handler.emit('COUNT', { data: count })
+                })
+            } else {
+                dbOption.execute(params.sql.replace(/\bSELECT\b.+?\bFROM\b/i, 'select count(*) count from')).then((rows) => {
+                    handler.emit('COUNT', { data: rows[0].count })
                 })
             }
-        });
-
+        }).on('export', (params) => {
+            this.exportService.export({ ...params.option, request: queryParam.res.request, dbOption }).then(() => {
+                handler.emit('EXPORT_DONE')
+            })
+        }).on('changePageSize', (pageSize) => {
+            Global.updateConfig(ConfigKey.DEFAULT_LIMIT, pageSize)
+        }).on('openGithub', () => {
+            env.openExternal(Uri.parse('https://github.com/cweijan/vscode-database-client'));
+        }).on('openCoffee', () => {
+            env.openExternal(Uri.parse('https://www.buymeacoffee.com/cweijan'));
+        }).on('dataModify', () => {
+            const title = handler.panel.title || ""
+            if (title.indexOf("*") == -1) handler.panel.title = `${title}*`
+        }).on("saveModify", (sql) => {
+            dbOption.execute(sql).then(() => {
+                handler.emit('updateSuccess')
+                handler.panel.title = (handler.panel.title || "").replace("*", "")
+            }).catch(err => {
+                handler.emit("updateFail", err)
+            })
+        })
     }
 
     private static async adaptData(queryParam: QueryParam<any>) {

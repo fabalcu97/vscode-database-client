@@ -40,6 +40,7 @@ import { SSHConnectionNode } from "./model/ssh/sshConnectionNode";
 import { FTPFileNode } from "./model/ftp/ftpFileNode";
 import { HistoryNode } from "./provider/history/historyNode";
 import { ConnectService } from "./service/connect/connectService";
+import { ResultViewProvider } from "./service/result/resultViewProvider";
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -52,6 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
         ...serviceManager.init(),
         vscode.window.onDidChangeActiveTextEditor(detectActive),
         ConnectService.listenConfig(),
+        ResultViewProvider.register(),
         ...initCommand({
             // util
             ...{

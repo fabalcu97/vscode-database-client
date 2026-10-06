@@ -63,5 +63,8 @@
 	"command.redis.key.detail": "View Key Detail",
 	"config.title":"Database Client",
 	"config.preferConnectionName":"Using connection name as connection node name",
-	"config.defaultSelectLimit":"Default limit of query sql."
+	"config.defaultSelectLimit":"Default limit of query sql.",
+	"config.results.location":"Where to show the results of queries run from an editor.",
+	"config.results.location.editor":"Show results in an editor tab beside the SQL editor.",
+	"config.results.location.panel":"Show results in the bottom panel, reusing the same view for every query."
 }
